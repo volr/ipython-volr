@@ -1,28 +1,34 @@
 from IPython.core.magic import (Magics, magics_class, line_magic, cell_magic)
 
+import re
 import subprocess
+import json
 from subprocess import PIPE
 
 @magics_class
 class VolrMagic(Magics):
 
+    json_pattern = "({.*})"
+
     @cell_magic('volr')
     def execute(self, line, cell):
         content = cell
-        json, errors = self.process_script(content)
+        myelin_json, errors = self.process_script(content)
         if errors:
-            return json + "\nProcess timed out: " + errors
+            return myelin_json + "\nProcess timed out: " + errors
 
         process = subprocess.Popen(line.split(" "), stdin=PIPE, stdout=PIPE, stderr=PIPE)
         try:
-            result, errors = process.communicate(input = json)
+            result, errors = process.communicate(input = myelin_json)
         except subprocess.TimeoutExpired:
             result, errors = process.communicate()
 
         if errors:
             return str(result) + "\n" + str(errors)
 
-        return result
+        json_string = re.search(self.json_pattern, result.decode()).group(1)
+
+        return json.loads(json_string)
 
     def process_script(self, content):
         process = subprocess.Popen(["volr"], stdin=PIPE, stdout=PIPE, stderr=PIPE)
